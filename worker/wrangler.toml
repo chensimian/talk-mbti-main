@@ -1,0 +1,19 @@
+name = "gemini-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# 限定 Worker 只在美国西部运行
+[placement]
+mode = "smart"
+
+# 强制 smart placement 将 Worker 调度到美国
+[observability]
+enabled = true
+
+[vars]
+ALLOWED_ORIGIN = "https://anneheartrecord.github.io"
+
+# 路由：只绑定自定义域名，不用 workers.dev
+routes = [
+  { pattern = "api.charles-cheng.com/*", zone_name = "charles-cheng.com" }
+]

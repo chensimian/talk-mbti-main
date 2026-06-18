@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Database
+*.sqlite3
+*.db
+worker/.wrangler/
+
+# Private docs (keep local, exclude from remote)
+推文.md
+方案.md
+APP计划.md
+功能清单.md
