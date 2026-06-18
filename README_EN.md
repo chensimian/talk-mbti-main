@@ -32,7 +32,7 @@ talk-mbti takes a different approach: it just talks to you. About anything — w
 
 If this project helps you, feel free to buy me a coffee ☕
 
-<img src="mbti-images/wechat_sponsor.jpg" width="240" />
+<img src="mbti-images/wechat-pay.png" width="240" />
 
 ## License
 
