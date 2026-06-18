@@ -6,7 +6,7 @@
 [![MBTI](https://img.shields.io/badge/MBTI-16%20Types-blue)](https://en.wikipedia.org/wiki/Myers%E2%80%93Briggs_Type_Indicator)
 [![AI Powered](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-green)](https://ai.google.dev/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org/)
-[![Deploy](https://img.shields.io/badge/Deploy-GitHub%20Pages-black)](https://smianchen.online/)
+[![Deploy](https://img.shields.io/badge/Deploy-GitHub%20Pages-black)](https://talk-mbti.smianchen.online/)
 
 **An MBTI test with zero multiple-choice questions. Just chat, and get your personality type.**
 
@@ -16,7 +16,7 @@ Psychology calls this **Social Desirability Bias**: people unconsciously beautif
 
 talk-mbti takes a different approach: it just talks to you. About anything — work, hobbies, recent worries, a decision you made last week. The AI extracts real behavioral signals from your word choices, gut reactions, and decision-making logic. After the chat, you get a full report with four-dimension percentages, cognitive function stack, strengths, and growth areas.
 
-**👉 Try it: https://smianchen.online/**
+**👉 Try it: https://talk-mbti.smianchen.online/**
 
 <table>
   <tr>
