@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 // 优先走 Worker 代理（隐藏 API Key + 国内可用），回退直连
 const PROXY_URL = import.meta.env.VITE_GEMINI_PROXY_URL // e.g. https://gemini-proxy.xxx.workers.dev
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+const MODEL_NAME = import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.5-flash'
 
 /**
  * Gemini API 封装 composable
@@ -28,12 +29,15 @@ export function useGemini() {
       // @google/generative-ai SDK 的 baseUrl 通过 requestOptions 传递
       options.baseUrl = PROXY_URL
     } else {
+      if (!API_KEY) {
+        throw new Error('缺少 Gemini API Key，请配置 VITE_GEMINI_API_KEY')
+      }
       // 回退直连
       genAI = new GoogleGenerativeAI(API_KEY)
     }
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: MODEL_NAME,
       systemInstruction: systemPrompt,
       generationConfig: {
         temperature: 0.75,
@@ -77,7 +81,7 @@ export function useGemini() {
     try {
       const options = PROXY_URL ? { baseUrl: PROXY_URL } : {}
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
+        model: MODEL_NAME,
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 4096,
