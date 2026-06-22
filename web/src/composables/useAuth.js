@@ -6,7 +6,7 @@ const SIGNUP_COOLDOWN_SECONDS = 60
 function getRawErrorMessage(rawError) {
   if (!rawError) return ''
   if (typeof rawError === 'string') return rawError
-  return rawError.message || rawError.error_description || rawError.error || ''
+  return rawError.message || rawError.msg || rawError.error_description || rawError.error || ''
 }
 
 export function isAuthRateLimitError(rawError) {
@@ -44,6 +44,9 @@ export function getAuthErrorMessage(rawError, action = '认证') {
     return action === '注册'
       ? '注册邮件发送过于频繁，请稍后再试，或先使用 Google 登录/访客模式继续。'
       : '请求过于频繁，请稍后再试，或先使用访客模式继续。'
+  }
+  if (lower.includes('email address') && lower.includes('invalid')) {
+    return '邮箱地址无效，请换一个真实可接收邮件的邮箱'
   }
   if (lower.includes('user already registered') || lower.includes('already registered')) {
     return '该邮箱已注册，请直接登录'
