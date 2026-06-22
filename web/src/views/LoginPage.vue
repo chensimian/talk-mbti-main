@@ -16,7 +16,7 @@
         <!-- Tab 切换 -->
         <div class="flex rounded-xl bg-gray-100" style="padding: 4px; margin-bottom: 28px;">
           <button
-            @click="activeTab = 'login'"
+            @click="selectTab('login')"
             class="flex-1 rounded-lg font-medium transition-all duration-200"
             :class="activeTab === 'login' ? 'bg-white text-[#6C5CE7] shadow-sm' : 'text-gray-500'"
             style="padding: 10px 0; font-size: 15px;"
@@ -24,7 +24,7 @@
             登录
           </button>
           <button
-            @click="activeTab = 'register'"
+            @click="selectTab('register')"
             class="flex-1 rounded-lg font-medium transition-all duration-200"
             :class="activeTab === 'register' ? 'bg-white text-[#6C5CE7] shadow-sm' : 'text-gray-500'"
             style="padding: 10px 0; font-size: 15px;"
@@ -42,6 +42,15 @@
           {{ auth.error.value }}
         </div>
 
+        <!-- 成功/提示信息 -->
+        <div
+          v-if="auth.notice.value"
+          class="bg-emerald-50 text-emerald-700 rounded-xl"
+          style="padding: 12px 16px; font-size: 14px; margin-bottom: 20px;"
+        >
+          {{ auth.notice.value }}
+        </div>
+
         <!-- 登录表单 -->
         <form v-if="activeTab === 'login'" @submit.prevent="handleLogin">
           <div style="margin-bottom: 20px;">
@@ -50,6 +59,7 @@
               v-model="loginForm.email"
               type="email"
               placeholder="your@email.com"
+              autocomplete="email"
               required
               class="w-full border border-gray-200 rounded-xl outline-none focus:border-[#6C5CE7] focus:ring-2 focus:ring-purple-100 transition-all"
               style="padding: clamp(12px, 3vw, 14px) clamp(12px, 3vw, 16px); font-size: 15px;"
@@ -61,6 +71,7 @@
               v-model="loginForm.password"
               type="password"
               placeholder="请输入密码"
+              autocomplete="current-password"
               required
               class="w-full border border-gray-200 rounded-xl outline-none focus:border-[#6C5CE7] focus:ring-2 focus:ring-purple-100 transition-all"
               style="padding: clamp(12px, 3vw, 14px) clamp(12px, 3vw, 16px); font-size: 15px;"
@@ -84,6 +95,7 @@
               v-model="registerForm.nickname"
               type="text"
               placeholder="你的昵称"
+              autocomplete="nickname"
               class="w-full border border-gray-200 rounded-xl outline-none focus:border-[#6C5CE7] focus:ring-2 focus:ring-purple-100 transition-all"
               style="padding: clamp(12px, 3vw, 14px) clamp(12px, 3vw, 16px); font-size: 15px;"
             />
@@ -94,6 +106,7 @@
               v-model="registerForm.email"
               type="email"
               placeholder="your@email.com"
+              autocomplete="email"
               required
               class="w-full border border-gray-200 rounded-xl outline-none focus:border-[#6C5CE7] focus:ring-2 focus:ring-purple-100 transition-all"
               style="padding: clamp(12px, 3vw, 14px) clamp(12px, 3vw, 16px); font-size: 15px;"
@@ -105,6 +118,8 @@
               v-model="registerForm.password"
               type="password"
               placeholder="至少 6 位密码"
+              autocomplete="new-password"
+              minlength="6"
               required
               class="w-full border border-gray-200 rounded-xl outline-none focus:border-[#6C5CE7] focus:ring-2 focus:ring-purple-100 transition-all"
               style="padding: clamp(12px, 3vw, 14px) clamp(12px, 3vw, 16px); font-size: 15px;"
@@ -112,11 +127,11 @@
           </div>
           <button
             type="submit"
-            :disabled="auth.loading.value"
+            :disabled="isRegisterDisabled"
             class="w-full bg-[#6C5CE7] text-white font-bold rounded-xl hover:bg-[#5b4bd6] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             style="padding: 16px 0; font-size: 16px;"
           >
-            {{ auth.loading.value ? '注册中...' : '注册' }}
+            {{ registerButtonText }}
           </button>
         </form>
       </div>
@@ -131,15 +146,22 @@
           <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 33.2 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C33.9 5.9 29.2 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.2-2.7-.4-4z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.9 18.9 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C33.9 5.9 29.2 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5 0 9.5-1.8 13-4.7l-6-5.1C29.1 35.9 26.7 37 24 37c-5.2 0-9.6-3.5-11.1-8.2l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6 5.1c-.4.4 6.7-4.9 6.7-14.6 0-1.3-.2-2.7-.4-4z"/></svg>
           使用 Google 账号登录
         </button>
+        <button
+          @click="continueAsGuest"
+          class="w-full flex items-center justify-center rounded-xl text-white/95 font-semibold hover:bg-white/10 active:scale-[0.98] transition-all cursor-pointer"
+          style="padding: 14px 0; font-size: 15px; margin-top: 12px;"
+        >
+          暂不登录，继续体验
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { computed, onBeforeUnmount, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthGlobal } from '../composables/useAuth'
+import { getAuthErrorMessage, useAuthGlobal } from '../composables/useAuth'
 import { supabase } from '../lib/supabase'
 
 const router = useRouter()
@@ -158,6 +180,21 @@ const registerForm = reactive({
   password: '',
 })
 
+const registerCooldown = ref(0)
+let registerCooldownTimer = null
+
+const isRegisterDisabled = computed(() => auth.loading.value || registerCooldown.value > 0)
+const registerButtonText = computed(() => {
+  if (auth.loading.value) return '注册中...'
+  if (registerCooldown.value > 0) return `${registerCooldown.value}s 后再试`
+  return '注册'
+})
+
+function selectTab(tab) {
+  activeTab.value = tab
+  auth.clearMessages()
+}
+
 function redirectAfterLogin() {
   const redirect = sessionStorage.getItem('redirect_after_login')
   if (redirect) {
@@ -168,8 +205,20 @@ function redirectAfterLogin() {
   }
 }
 
+function startRegisterCooldown(seconds = auth.signupCooldownSeconds) {
+  registerCooldown.value = seconds
+  if (registerCooldownTimer) clearInterval(registerCooldownTimer)
+  registerCooldownTimer = setInterval(() => {
+    registerCooldown.value = Math.max(0, registerCooldown.value - 1)
+    if (registerCooldown.value === 0) {
+      clearInterval(registerCooldownTimer)
+      registerCooldownTimer = null
+    }
+  }, 1000)
+}
+
 async function handleLogin() {
-  auth.error.value = null
+  auth.clearMessages()
   const success = await auth.signIn(loginForm.email, loginForm.password)
   if (success) {
     redirectAfterLogin()
@@ -177,16 +226,24 @@ async function handleLogin() {
 }
 
 async function handleRegister() {
-  auth.error.value = null
-  const success = await auth.signUp(registerForm.email, registerForm.password, registerForm.nickname)
-  if (success) {
+  if (isRegisterDisabled.value) return
+
+  auth.clearMessages()
+  const result = await auth.signUp(registerForm.email, registerForm.password, registerForm.nickname)
+  if (result.rateLimited || result.networkError) {
+    startRegisterCooldown()
+  }
+  if (result.signedIn) {
     redirectAfterLogin()
   }
 }
 
 async function handleOAuthLogin(provider) {
-  if (!supabase) return
-  auth.error.value = null
+  if (!supabase) {
+    auth.error.value = '未配置认证服务'
+    return
+  }
+  auth.clearMessages()
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -194,9 +251,18 @@ async function handleOAuthLogin(provider) {
         redirectTo: window.location.origin + window.location.pathname
       }
     })
-    if (error) auth.error.value = error.message
+    if (error) auth.error.value = getAuthErrorMessage(error, 'Google 登录')
   } catch (e) {
-    auth.error.value = e.message
+    auth.error.value = getAuthErrorMessage(e, 'Google 登录')
   }
 }
+
+function continueAsGuest() {
+  auth.clearMessages()
+  router.push('/')
+}
+
+onBeforeUnmount(() => {
+  if (registerCooldownTimer) clearInterval(registerCooldownTimer)
+})
 </script>

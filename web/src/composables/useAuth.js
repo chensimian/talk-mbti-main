@@ -1,6 +1,82 @@
 import { ref, computed } from 'vue'
 import { supabase, getUserId } from '../lib/supabase'
 
+const SIGNUP_COOLDOWN_SECONDS = 60
+
+function getRawErrorMessage(rawError) {
+  if (!rawError) return ''
+  if (typeof rawError === 'string') return rawError
+  return rawError.message || rawError.error_description || rawError.error || ''
+}
+
+export function isAuthRateLimitError(rawError) {
+  const msg = getRawErrorMessage(rawError).toLowerCase()
+  const code = String(rawError?.code || rawError?.error_code || '').toLowerCase()
+  return (
+    code.includes('rate_limit') ||
+    msg.includes('rate limit') ||
+    msg.includes('rate_limit') ||
+    msg.includes('too many requests') ||
+    msg.includes('for security purposes')
+  )
+}
+
+function isAuthNetworkError(rawError) {
+  const msg = getRawErrorMessage(rawError).toLowerCase()
+  const name = String(rawError?.name || '').toLowerCase()
+  return (
+    name.includes('typeerror') ||
+    msg.includes('load failed') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('fetch failed')
+  )
+}
+
+export function getAuthErrorMessage(rawError, action = '认证') {
+  const msg = getRawErrorMessage(rawError)
+  const lower = msg.toLowerCase()
+  const code = String(rawError?.code || rawError?.error_code || '').toLowerCase()
+
+  if (!msg && !code) return `${action}失败，请稍后重试`
+  if (isAuthRateLimitError(rawError)) {
+    return action === '注册'
+      ? '注册邮件发送过于频繁，请稍后再试，或先使用 Google 登录/访客模式继续。'
+      : '请求过于频繁，请稍后再试，或先使用访客模式继续。'
+  }
+  if (lower.includes('user already registered') || lower.includes('already registered')) {
+    return '该邮箱已注册，请直接登录'
+  }
+  if (lower.includes('invalid login credentials')) {
+    return '邮箱或密码错误'
+  }
+  if (lower.includes('email not confirmed')) {
+    return '请先验证邮箱，或使用 Google 登录'
+  }
+  if (lower.includes('weak password') || (lower.includes('password') && lower.includes('6'))) {
+    return '密码至少 6 位，请换一个更安全的密码'
+  }
+  if (lower.includes('signup') && lower.includes('disabled')) {
+    return '邮箱注册暂不可用，请使用 Google 登录或访客模式继续。'
+  }
+  if (lower.includes('provider') && lower.includes('not enabled')) {
+    return 'Google 登录暂未启用，请先使用邮箱登录或访客模式继续。'
+  }
+  if (isAuthNetworkError(rawError)) {
+    return '连接认证服务失败，请检查网络后重试；如果在微信内打不开，请用系统浏览器打开本站。'
+  }
+  if (lower.includes('timeout')) {
+    return '认证服务响应超时，请稍后重试。'
+  }
+
+  return `${action}失败，请稍后重试`
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase()
+}
+
 /**
  * 认证状态管理
  * 支持三种模式：访客（现有 UUID）→ Supabase Auth 登录
@@ -10,6 +86,7 @@ export function useAuth() {
   const user = ref(null)
   const loading = ref(false)
   const error = ref(null)
+  const notice = ref(null)
 
   // 访客 ID（兼容现有系统）
   const guestId = computed(() => getUserId())
@@ -84,35 +161,61 @@ export function useAuth() {
    * 邮箱 + 密码注册
    */
   async function signUp(email, password, nickname) {
-    if (!supabase) { error.value = '未配置认证服务'; return false }
+    if (!supabase) { error.value = '未配置认证服务'; return { ok: false } }
+    const normalizedEmail = normalizeEmail(email)
+    if (!normalizedEmail || !password) {
+      error.value = '请填写邮箱和密码'
+      return { ok: false }
+    }
+    if (password.length < 6) {
+      error.value = '密码至少 6 位'
+      return { ok: false }
+    }
+
     loading.value = true
     error.value = null
+    notice.value = null
 
     try {
+      const emailRedirectTo = `${window.location.origin}${window.location.pathname}#/login`
       const { data, error: authError } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
-          data: { nickname: nickname || email.split('@')[0] }
+          data: { nickname: String(nickname || '').trim() || normalizedEmail.split('@')[0] },
+          emailRedirectTo,
         }
       })
 
       if (authError) {
-        error.value = authError.message === 'User already registered'
-          ? '该邮箱已注册，请直接登录'
-          : authError.message
-        return false
+        error.value = getAuthErrorMessage(authError, '注册')
+        return { ok: false, rateLimited: isAuthRateLimitError(authError) }
       }
 
-      user.value = data.user
+      if (Array.isArray(data?.user?.identities) && data.user.identities.length === 0) {
+        error.value = '该邮箱已注册，请直接登录'
+        return { ok: false, existingUser: true }
+      }
 
-      // 合并访客数据到新账号
-      await migrateGuestData(data.user.id)
+      if (data?.session?.user) {
+        user.value = data.session.user
 
-      return true
+        // 合并访客数据到新账号
+        await migrateGuestData(data.session.user.id)
+
+        return { ok: true, signedIn: true }
+      }
+
+      if (data?.user) {
+        notice.value = '注册申请已提交，请打开邮箱完成验证后再登录。没有收到邮件时，请稍后再试或使用 Google 登录。'
+        return { ok: true, needsEmailConfirmation: true }
+      }
+
+      error.value = '注册失败，请稍后重试'
+      return { ok: false }
     } catch (e) {
-      error.value = e.message
-      return false
+      error.value = getAuthErrorMessage(e, '注册')
+      return { ok: false, networkError: isAuthNetworkError(e) }
     } finally {
       loading.value = false
     }
@@ -123,20 +226,19 @@ export function useAuth() {
    */
   async function signIn(email, password) {
     if (!supabase) { error.value = '未配置认证服务'; return false }
+    const normalizedEmail = normalizeEmail(email)
     loading.value = true
     error.value = null
+    notice.value = null
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       })
 
       if (authError) {
-        const msg = authError.message
-        if (msg === 'Invalid login credentials') error.value = '邮箱或密码错误'
-        else if (msg.includes('Email not confirmed')) error.value = '请先验证邮箱，或使用 Google 登录'
-        else error.value = msg
+        error.value = getAuthErrorMessage(authError, '登录')
         return false
       }
 
@@ -147,11 +249,16 @@ export function useAuth() {
 
       return true
     } catch (e) {
-      error.value = e.message
+      error.value = getAuthErrorMessage(e, '登录')
       return false
     } finally {
       loading.value = false
     }
+  }
+
+  function clearMessages() {
+    error.value = null
+    notice.value = null
   }
 
   /**
@@ -202,6 +309,8 @@ export function useAuth() {
     user,
     loading,
     error,
+    notice,
+    signupCooldownSeconds: SIGNUP_COOLDOWN_SECONDS,
     guestId,
     isLoggedIn,
     isGuest,
@@ -211,6 +320,7 @@ export function useAuth() {
     signUp,
     signIn,
     signOut,
+    clearMessages,
     getEffectiveUserId,
   }
 }
